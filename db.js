@@ -5,7 +5,8 @@ dotenv.config()
 const credentials = {
     host: process.env.ENDPOINT,
     user : process.env.USER_VALUE,
-    password: process.env.PASSWORD
+    password: process.env.PASSWORD,
+    database: process.env.DATABASE
 }
 
 const connection = mysql.createConnection(credentials)
@@ -18,3 +19,5 @@ connection.connect( (err) => {
         console.log("Successfully connected to db")
     }
 })
+
+module.exports = connection
