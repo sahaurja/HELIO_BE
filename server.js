@@ -43,6 +43,19 @@ app.post("/translate", async(req, res) => {
     }
 })
 
+//get translation data from db
+app.get("/getcards" , (req, res) => {
+    const sqlquery = "SELECT * FROM flashcard_data"
+    connection.query(sqlquery, (err, response) => {
+        if (err) {
+            console.log(err)
+        }
+        else{
+            res.json(response)
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
