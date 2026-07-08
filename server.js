@@ -1,6 +1,12 @@
 const connection = require("./db")
 const express = require("express")
-const {translate} = require("@vitalets/google-translate-api")
+const dotenv = require("dotenv")
+dotenv.config()
+
+//deepl api
+const deepl = require("deepl-node")
+const deepl_key = process.env.DEEPL_KEY 
+const deepl_client = new deepl.DeepLClient(deepl_key)
 
 const app = express()
 
@@ -27,18 +33,29 @@ app.get("/login_info", (req, res) => {
     })
 })
 
-//try using translation api
-app.post("/translate", async (req, res) => {
-    const {text, target_lang} = req.body
+app.post("/translate3", async(req, res) => {
     try{
-      const result = await translate(text, {to: target_lang})  
+        const result = await deepl_client.translateText("Hello","en" ,"fr");
         res.json(result)
     }
-    catch (err){
+    catch(err){
         console.log(err)
     }
 })
 
+app.post("/translate", async(req,res) => {
+    const { input_text, input_language, output_language } = req.body;
+        connection.query("INSERT INTO translator (input_text, input_language, output_language) VALUES (?, ?, ?)", 
+            [input_text, input_language, output_language],
+            (err, result) => {
+                if (err) {
+                    console.error(err);
+                    return res.status(500).json({ error: err.message });
+                }
+
+                console.log(result);
+            })
+})
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
