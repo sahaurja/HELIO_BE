@@ -1,6 +1,13 @@
 const connection = require("./db")
 const express = require("express")
 const dotenv = require("dotenv")
+const cors = require("cors")
+
+const corsOptions = {
+    origin: "http://localhost:5173",
+    methods : ["GET", "PUT", "POST", "DELETE"]
+}
+
 dotenv.config()
 
 //deepl api
@@ -11,6 +18,8 @@ const deepl_client = new deepl.DeepLClient(deepl_key)
 const app = express()
 
 app.use(express.json())
+
+app.use(cors(corsOptions))
 
 const PORT = 8081
 
@@ -44,10 +53,23 @@ app.post("/translate", async(req, res) => {
 })
 
 //get translation data from db
-app.get("/getcards" , (req, res) => {
-    const sqlquery = "SELECT * FROM flashcard_data"
-    connection.query(sqlquery, (err, response) => {
-        if (err) {
+// app.get("/getcards" , (req, res) => {
+//     const sqlquery = "SELECT * FROM flashcard_data"
+//     connection.query(sqlquery, (err, response) => {
+//         if (err) {
+//             console.log(err)
+//         }
+//         else{
+//             res.json(response)
+//         }
+//     })
+// })
+
+app.post("/generateflashcards", (req, res) => {
+    const {id_val, ilang, olang} = req.body
+    const sqlquery = "SELECT * FROM translator WHERE user_id=? AND input_language =? AND output_language=?"
+    connection.query(sqlquery, [id_val, ilang, olang] , (err, response) => {
+        if(err){
             console.log(err)
         }
         else{
