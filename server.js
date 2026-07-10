@@ -78,6 +78,20 @@ app.post("/generateflashcards", (req, res) => {
     })
 })
 
+// add flashcard rating to ongoing table 
+app.post("/addrating", async (req, res) => {
+    const {id, rating} = req.body;
+    const sqlquery = "INSERT INTO ratings (translator_id, curr_rating) VALUES (?, ?)"
+    connection.query(sqlquery, [id, rating], (err, result) => {
+        if(err){
+            console.log(err)
+        }
+        else{
+            res.send(result)
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
