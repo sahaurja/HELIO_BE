@@ -43,6 +43,27 @@ app.post("/translate3", async(req, res) => {
     }
 })
 
+app.post("/translateinto", async (req, res) => {
+    try {
+        const { input_text, input_language, output_language } = req.body;
+
+        const result = await deepl_client.translateText(
+            input_text,
+            input_language,
+            output_language
+        );
+
+        res.json({
+            output_text: result.text,
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            error: "Translation failed"
+        });
+    }
+});
+
 app.post("/translate", async(req,res) => {
     const { input_text, input_language, output_language } = req.body;
         connection.query("INSERT INTO translator (input_text, input_language, output_language) VALUES (?, ?, ?)", 
