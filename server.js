@@ -15,8 +15,9 @@ const deepl = require("deepl-node")
 const deepl_key = process.env.DEEPL_KEY 
 const deepl_client = new deepl.DeepLClient(deepl_key)
 
-const app = express()
+const app = express();
 
+app.use(cors());
 app.use(express.json())
 
 app.use(cors(corsOptions))
@@ -42,7 +43,7 @@ app.get("/login_info", (req, res) => {
     })
 })
 
-app.post("/translate", async(req, res) => {
+app.post("/translate3", async(req, res) => {
     try{
         const result = await deepl_client.translateText("Hello","en" ,"fr");
         res.json(result)
@@ -92,6 +93,42 @@ app.post("/addrating", async (req, res) => {
     })
 })
 
+app.post("/translateinto", async (req, res) => {
+    console.log(req.body);
+    try {
+        const { input_text, input_language, output_language } = req.body;
+
+        const result = await deepl_client.translateText(
+            input_text,
+            input_language,
+            output_language
+        );
+
+        res.json({
+            output_text: result.text,
+        });
+    } catch (err) {
+        console.error(err.message);
+        console.error(err);
+        res.status(500).json({
+            error: "Translation failed"
+        });
+    }
+});
+
+app.post("/translate", async(req,res) => {
+    const { input_text, input_language, output_language } = req.body;
+        connection.query("INSERT INTO translator (input_text, input_language, output_language) VALUES (?, ?, ?)", 
+            [input_text, input_language, output_language],
+            (err, result) => {
+                if (err) {
+                    console.error(err);
+                    return res.status(500).json({ error: err.message });
+                }
+
+                console.log(result);
+            })
+})
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
