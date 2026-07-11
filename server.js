@@ -1,6 +1,7 @@
 const connection = require("./db")
 const express = require("express")
 const dotenv = require("dotenv")
+const cors = require("cors");
 dotenv.config()
 
 //deepl api
@@ -8,8 +9,9 @@ const deepl = require("deepl-node")
 const deepl_key = process.env.DEEPL_KEY 
 const deepl_client = new deepl.DeepLClient(deepl_key)
 
-const app = express()
+const app = express();
 
+app.use(cors());
 app.use(express.json())
 
 const PORT = 8081
@@ -44,6 +46,7 @@ app.post("/translate3", async(req, res) => {
 })
 
 app.post("/translateinto", async (req, res) => {
+    console.log(req.body);
     try {
         const { input_text, input_language, output_language } = req.body;
 
@@ -57,6 +60,7 @@ app.post("/translateinto", async (req, res) => {
             output_text: result.text,
         });
     } catch (err) {
+        console.error(err.message);
         console.error(err);
         res.status(500).json({
             error: "Translation failed"
