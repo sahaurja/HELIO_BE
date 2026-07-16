@@ -2,6 +2,7 @@ const connection = require("./db")
 const express = require("express")
 const dotenv = require("dotenv")
 const cors = require("cors")
+const bcrypt = require("bcryptjs")
 
 const corsOptions = {
     origin: "http://localhost:5173",
@@ -17,10 +18,6 @@ const deepl_client = new deepl.DeepLClient(deepl_key)
 
 const app = express();
 
-app.listen(8081, () => {
-    console.log("Server running on port 8081");
-});
-
 app.use(cors());
 app.use(express.json())
 
@@ -32,6 +29,29 @@ const PORT = 8081
 
 app.get("/", (req, res) => {
     res.send("Home")
+})
+
+// try getting data from db 
+app.get("/login_info", (req, res) => {
+    const sqlquery = "SELECT * FROM login_info"
+    connection.query(sqlquery, (err, response)=> {
+        if(err){
+            console.log(err)
+        }
+        else{
+            res.json(response)
+        }
+    })
+})
+
+app.post("/translate3", async(req, res) => {
+    try{
+        const result = await deepl_client.translateText("Hello","en" ,"fr");
+        res.json(result)
+    }
+    catch(err){
+        console.log(err)
+    }
 })
 
 //get translation data from db
@@ -74,29 +94,6 @@ app.post("/addrating", async (req, res) => {
     })
 })
 
-
-app.get("/login_info", (req, res) => {
-    const sqlquery = "SELECT * FROM login_info"
-    connection.query(sqlquery, (err, response)=> {
-        if(err){
-            console.log(err)
-        }
-        else{
-            res.json(response)
-        }
-    })
-})
-
-app.post("/translate3", async(req, res) => {
-    try{
-        const result = await deepl_client.translateText("Hello","en" ,"fr");
-        res.json(result)
-    }
-    catch(err){
-        console.log(err)
-    }
-})
-
 app.post("/translateinto", async (req, res) => {
     console.log(req.body);
     try {
@@ -120,24 +117,61 @@ app.post("/translateinto", async (req, res) => {
     }
 });
 
-app.post("/translate", async (req, res) => {
-    const { input_text, input_language, output_language, output_text, user_id} = req.body;
+app.post("/translate", async(req,res) => {
+    const { input_text, input_language, output_language } = req.body;
+        connection.query("INSERT INTO translator (input_text, input_language, output_language) VALUES (?, ?, ?)", 
+            [input_text, input_language, output_language],
+            (err, result) => {
+                if (err) {
+                    console.error(err);
+                    return res.status(500).json({ error: err.message });
+                }
 
-    connection.query(
-        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id) VALUES (?, ?, ?, ?, ?)",
-        [input_text, input_language, output_language, output_text, user_id],
-        (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ error: err.message });
+                console.log(result);
+            })
+})
+
+//add login
+app.get("/loggingIn", (req, res) => {
+    res.send("JWT Auth is running")
+})
+
+//register a new user by adding them to db 
+app.post("/register", async (req, res) => {
+    const {username, password, email} = req.body
+    //align with the UNIQUE attribute in tables for email and username 
+    const sqlquery1 = "INSERT INTO all_logins (username, password, email) VALUES (?, ?, ?)"
+    const hashed_password = await bcrypt.hash(password, 10)
+    connection.query(sqlquery1, [username, hashed_password, email], (err, result) => {
+        if(err){
+            console.log(err)
+            //check if error is for duplication
+            if(err.errno == 1062){ //duplication
+                if(err.sqlMessage.includes("username")){
+                    return res.send("Username already in use")
+                }
+                else if (err.sqlMessage.includes("email")){
+                    return res.send("Email already in use")
+                }
+                else{
+                    return res.send("Internal login error")
+                }
             }
-
-            console.log(result);
-
-            res.json({
-                message: "Translation saved",
-                id: result.insertId
-            });
+            //different error
+            else{
+                console.log(err)
+            }
         }
-    );
-});
+        //no error
+        else{
+            return res.send(result)
+        }
+    })
+
+})
+
+//log in a current user
+
+app.listen(PORT, () => {
+    console.log(`Server started at Port ${PORT}`)
+})
