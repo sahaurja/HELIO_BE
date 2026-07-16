@@ -3,6 +3,7 @@ const express = require("express")
 const dotenv = require("dotenv")
 const cors = require("cors")
 const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
 
 const corsOptions = {
     origin: "http://localhost:5173",
@@ -131,11 +132,6 @@ app.post("/translate", async(req,res) => {
             })
 })
 
-//add login
-app.get("/loggingIn", (req, res) => {
-    res.send("JWT Auth is running")
-})
-
 //register a new user by adding them to db 
 app.post("/register", async (req, res) => {
     const {username, password, email} = req.body
@@ -170,7 +166,51 @@ app.post("/register", async (req, res) => {
 
 })
 
-//log in a current user
+//log in a current user and issue a jwt
+app.post("/dologin", async(req,res) => {
+    const {username, password} = req.body
+    //check if user exists based on email 
+    //sql query to return that user 
+    //check is password matches 
+    //if matches, give jwt
+    //else give an error 
+    const sqlquery = "SELECT * from all_logins where username = ? LIMIT 1"
+    connection.query(sqlquery, [username], async (err, response) => {
+        if(err){ //general error 
+            console.log(err)
+        }
+        else{ 
+            //check for any matches 
+            if(response.length == 0){
+                return res.send("Username not Registered")
+            }
+            //check for password validity
+            bcrypt.compare(password, response[0].password, (b_err, b_response) => {
+                if(b_err){ //general bcrypt err
+                    console.log(b_err)
+                }
+                else{
+                    //check if password matches
+                    if(b_response){
+                    //return a jwt 
+                    const payload = {
+                        id : response[0].user_id,
+                        username: response[0].username,
+                        email: response[0].email
+                    }
+                    const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {expiresIn: "1h"})
+                    return res.send(token)
+                    }
+                    else{
+                        //invalid credentials 
+                        return res.send("Invalid Password")
+                    }
+                }
+            })
+
+        }
+    })
+})
 
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
