@@ -4,6 +4,7 @@ const dotenv = require("dotenv")
 const cors = require("cors")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
+const midAuth = require("./middleware-auth.js")
 
 const corsOptions = {
     origin: "http://localhost:5173",
@@ -210,6 +211,16 @@ app.post("/dologin", async(req,res) => {
 
         }
     })
+})
+
+//test the protected routes
+app.post("/testauth", midAuth, (req, res) => {
+
+    res.json({
+        message: "Success",
+        addedBy: req.user.username
+    })
+    
 })
 
 app.listen(PORT, () => {
