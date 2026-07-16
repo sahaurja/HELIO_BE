@@ -5,10 +5,12 @@ const cors = require("cors")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const midAuth = require("./middleware-auth.js")
+const cookieParser = require("cookie-parser")
 
 const corsOptions = {
     origin: "http://localhost:5173",
-    methods : ["GET", "PUT", "POST", "DELETE"]
+    methods : ["GET", "PUT", "POST", "DELETE"],
+    credentials: true //allow sending cookies 
 }
 
 dotenv.config()
@@ -19,8 +21,8 @@ const deepl_key = process.env.DEEPL_KEY
 const deepl_client = new deepl.DeepLClient(deepl_key)
 
 const app = express();
+app.use(cookieParser())
 
-app.use(cors());
 app.use(express.json())
 
 app.use(cors(corsOptions))
@@ -199,8 +201,12 @@ app.post("/dologin", async(req,res) => {
                         username: response[0].username,
                         email: response[0].email
                     }
-                    const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {expiresIn: "1h"})
-                    return res.send(token)
+                    const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {expiresIn: "10d"})
+                    //set a cookie with name of token and the value as the JWT
+                    res.cookie("token",token, {
+                        httpOnly:true, //no JS access
+                        secure:false
+                    }).send({success:true})
                     }
                     else{
                         //invalid credentials 
@@ -213,6 +219,15 @@ app.post("/dologin", async(req,res) => {
     })
 })
 
+//log out a logged-in user
+app.post("/dologout", (req, res) => {
+    //clear the cookie
+    res.clearCookie("token", {
+        httpOnly:true,
+        secure:false
+    }).send({success:true})
+})
+
 //test the protected routes
 app.post("/testauth", midAuth, (req, res) => {
 
@@ -221,6 +236,14 @@ app.post("/testauth", midAuth, (req, res) => {
         addedBy: req.user.username
     })
     
+})
+
+//get the user info from cookie when requested 
+app.get("/verifyUser", midAuth, (req, res) => {
+    res.json({
+        success: true,
+        user:{user_id: req.user.user_id, username: req.user.username, password: req.user.password}
+    })
 })
 
 app.listen(PORT, () => {

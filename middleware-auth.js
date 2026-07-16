@@ -2,9 +2,11 @@ const jwt = require("jsonwebtoken")
 
 
 const authenticateToken = (req, res, next) => {
-    //Grab token from req header
-    const authHeader = req.headers["authorization"]
-    const token = authHeader && authHeader.split(" ")[1]
+        //Grab token from req header
+        // const authHeader = req.headers["authorization"]
+        // const token = authHeader && authHeader.split(" ")[1]
+    //Grab token from cookie instead
+    const token = req.cookies.token
     //ensure token has actually been provided
     if(!token){
         return res.send("Unauthorized - No token provided")
