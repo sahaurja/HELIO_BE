@@ -58,19 +58,6 @@ app.post("/translate3", async(req, res) => {
     }
 })
 
-//get translation data from db
-// app.get("/getcards" , (req, res) => {
-//     const sqlquery = "SELECT * FROM flashcard_data"
-//     connection.query(sqlquery, (err, response) => {
-//         if (err) {
-//             console.log(err)
-//         }
-//         else{
-//             res.json(response)
-//         }
-//     })
-// })
-
 app.post("/generateflashcards", (req, res) => {
     const {id_val, ilang, olang} = req.body
     const sqlquery = "SELECT * FROM translator WHERE user_id=? AND input_language =? AND output_language=?"
@@ -238,7 +225,7 @@ app.post("/testauth", midAuth, (req, res) => {
     
 })
 
-//get the user info from cookie when requested 
+//if the user is verified, when requested, send them the cookie contents 
 app.get("/verifyUser", midAuth, (req, res) => {
     res.json({
         success: true,
