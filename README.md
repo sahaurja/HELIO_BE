@@ -1,2 +1,2 @@
 # API_Project_BE
-HIIII
+Backend for flashcard project
