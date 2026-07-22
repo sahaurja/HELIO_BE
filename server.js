@@ -140,33 +140,45 @@ const uploadS3 = async(myPic) => {
     }
 }
 
-//get the image url to access...TODO: Deal with timeouts 
-const getImageUrl = async(fileName) => {
+//get the image url to access
+const getImageUrl = async(picture_key) => {
     const cmd = new GetObjectCommand({
         Bucket: "flash-app-bkt",
-        Key: `card-image/${fileName}`
+        Key: picture_key
     })
     //for now, have URL expire in 1 hr 
     const url = await getSignedUrl(s3, cmd, {expiresIn: 3600})
     return url
 }
 
+//get the url of an image
+//called each time specific flashcard is flipped
+app.post("/getCardImage", async (req, res) => {
+    const {key} = req.body
+    const url_result = await getImageUrl(key)
+    // console.log(url_result)
+    res.send(url_result)
+})
+
 //upload image to bucket
+//returns the key of image in bucket 
 app.post("/uploadImg", upload.single("flash_image"), async(req, res) => {
     if(!req.file){
         return res.send("No img uploaded")
     }
     try{
+        console.log("Attempting s3 upload")
         const uploadStatus = await uploadS3(req.file)
         //try getting the url
         try{
-            const url_res = await getImageUrl(req.file.originalname)
-            return res.send(url_res)
+            //return the path of the uploaded image 
+            const picture_key = `card-image/${req.file.originalname}`
+            // const url_res = await getImageUrl(req.file.originalname)
+            return res.send(picture_key)
         }
         catch{
             return res.send("error with url")
         }
-        return res.send(`Successfully uploaded ${req.file.originalname}`)
     }
     catch(err){
         console.log(err)
@@ -174,35 +186,12 @@ app.post("/uploadImg", upload.single("flash_image"), async(req, res) => {
     
 })
 
-//upload image and get the url
-//function version of /uploadImg
-const full_image_upload = async (flash_image) => {
-    if(flash_image){
-        return res.send("No img uploaded")
-    }
-    try{
-        const uploadStatus = await uploadS3(flash_image)
-        //try getting the url
-        try{
-            const url_res = await getImageUrl(flash_image.originalname)
-            return res.send(url_res)
-        }
-        catch{
-            return res.send("error with url")
-        }
-        return res.send(`Successfully uploaded ${flash_image.originalname}`)
-    }
-    catch(err){
-        console.log(err)
-    }
-} 
-
 app.post("/translate", async (req, res) => {
-    const { input_text, input_language, output_language, output_text, user_id, picture_url} = req.body;
+    const { input_text, input_language, output_language, output_text, user_id, picture_key} = req.body;
 
     connection.query(
-        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id, picture_url) VALUES (?, ?, ?, ?, ?, ?)",
-        [input_text, input_language, output_language, output_text, user_id, picture_url],
+        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id, picture_key) VALUES (?, ?, ?, ?, ?, ?)",
+        [input_text, input_language, output_language, output_text, user_id, picture_key],
         (err, result) => {
             if (err) {
                 console.error(err);
