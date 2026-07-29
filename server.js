@@ -4,8 +4,17 @@ const dotenv = require("dotenv")
 const cors = require("cors")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
-const midAuth = require("./middleware-auth.js")
+const midAuth = require("./auth-components/middleware-auth.js")
 const cookieParser = require("cookie-parser")
+const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsCommand, GetObjectCommand} = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner')
+const readFineSync = require("fs")
+const multer = require("multer")
+
+dotenv.config()
+
+
+const s3 = new S3Client({region:process.env.AWS_REGION})
 
 const corsOptions = {
     origin: "http://localhost:5173",
@@ -13,7 +22,12 @@ const corsOptions = {
     credentials: true //allow sending cookies 
 }
 
-dotenv.config()
+
+//set up multer for storage
+const storage = multer.memoryStorage()
+const upload = multer({
+    storage:storage,
+})
 
 //deepl api
 const deepl = require("deepl-node")
@@ -107,20 +121,92 @@ app.post("/translateinto", async (req, res) => {
         });
     }
 });
+//helper function to upload img to s3
+const uploadS3 = async(myPic) => {
+    const key = `card-image/${myPic.originalname}`
+    const cmd = new PutObjectCommand({
+        Bucket: 'flash-app-bkt',
+        Key: key,
+        Body: myPic.buffer,
+        ACL: "private", 
+        ContentType: myPic.mimetype
+    })
+    try{
+        await s3.send(cmd)
+        return "Upload Successful"
+    }
+    catch(err){
+        console.log(err)
+    }
+}
 
-app.post("/translate", async(req,res) => {
-    const { input_text, input_language, output_language } = req.body;
-        connection.query("INSERT INTO translator (input_text, input_language, output_language) VALUES (?, ?, ?)", 
-            [input_text, input_language, output_language],
-            (err, result) => {
-                if (err) {
-                    console.error(err);
-                    return res.status(500).json({ error: err.message });
-                }
+//get the image url to access
+const getImageUrl = async(picture_key) => {
+    const cmd = new GetObjectCommand({
+        Bucket: "flash-app-bkt",
+        Key: picture_key
+    })
+    //for now, have URL expire in 1 hr 
+    const url = await getSignedUrl(s3, cmd, {expiresIn: 3600})
+    return url
+}
 
-                console.log(result);
-            })
+//get the url of an image
+//called each time specific flashcard is flipped
+app.post("/getCardImage", async (req, res) => {
+    const {key} = req.body
+    const url_result = await getImageUrl(key)
+    // console.log(url_result)
+    res.send(url_result)
 })
+
+//upload image to bucket
+//returns the key of image in bucket 
+app.post("/uploadImg", upload.single("flash_image"), async(req, res) => {
+    if(!req.file){
+        return res.send("No img uploaded")
+    }
+    try{
+        console.log("Attempting s3 upload")
+        const uploadStatus = await uploadS3(req.file)
+        //try getting the url
+        try{
+            //return the path of the uploaded image 
+            const picture_key = `card-image/${req.file.originalname}`
+            // const url_res = await getImageUrl(req.file.originalname)
+            return res.send(picture_key)
+        }
+        catch{
+            return res.send("error with url")
+        }
+    }
+    catch(err){
+        console.log(err)
+    }
+    
+})
+
+app.post("/translate", async (req, res) => {
+    const { input_text, input_language, output_language, output_text, user_id, picture_key} = req.body;
+
+    connection.query(
+        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id, picture_key) VALUES (?, ?, ?, ?, ?, ?)",
+        [input_text, input_language, output_language, output_text, user_id, picture_key],
+        (err, result) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ error: err.message });
+            }
+
+            console.log(result);
+
+            res.json({
+                message: "Translation saved",
+                id: result.insertId
+            });
+        }
+    );
+});
 
 //register a new user by adding them to db 
 app.post("/register", async (req, res) => {
@@ -229,9 +315,12 @@ app.post("/testauth", midAuth, (req, res) => {
 app.get("/verifyUser", midAuth, (req, res) => {
     res.json({
         success: true,
-        user:{user_id: req.user.user_id, username: req.user.username, password: req.user.password}
+        user:{user_id: req.user.id, username: req.user.username, email: req.user.email}
     })
-})
+});
+
+
+
 
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
