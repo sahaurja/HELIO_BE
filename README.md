@@ -1,2 +1,4 @@
 # API_Project_BE
-Backend for flashcard project
+HIIII
+
+FE Repo: https://github.com/sahaurja/API_Project_FE
