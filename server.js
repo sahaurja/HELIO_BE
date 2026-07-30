@@ -319,8 +319,19 @@ app.get("/verifyUser", midAuth, (req, res) => {
     })
 });
 
-
-
+// based on the user id, fetch all their flashcards 
+app.post("/fetchCards", async(req, res) => {
+    const {id_val} = req.body
+    const sqlQuery = "SELECT * FROM translator WHERE user_id = ?"
+    connection.query(sqlQuery, [id_val], (err, result) => {
+        if(err){
+            console.log(err)
+        }
+        else{
+            res.send(result)
+        }
+    })
+})
 
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
