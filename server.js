@@ -333,6 +333,20 @@ app.post("/fetchCards", async(req, res) => {
     })
 })
 
+//edit the flashcard values 
+app.put("/updateFlashcard", (req, res) => {
+    const {translator_id, input_text, output_text, pic_key} = req.body
+    const sqlquery = "UPDATE translator SET input_text = ?, output_text = ?, picture_key = ? WHERE translator_id = ?"
+    connection.query(sqlquery, [input_text, output_text, pic_key, translator_id], (err, response) => {
+        if (err){
+            console.log(err)
+        }
+        else{
+            res.send(response)
+        }
+    })
+})
+
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
