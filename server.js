@@ -17,7 +17,7 @@ dotenv.config()
 const s3 = new S3Client({region:process.env.AWS_REGION})
 
 const corsOptions = {
-    origin: "http://localhost:5173",
+    origin: "http://18.117.115.172:5173",
     methods : ["GET", "PUT", "POST", "DELETE"],
     credentials: true //allow sending cookies 
 }
@@ -346,6 +346,9 @@ app.put("/updateFlashcard", (req, res) => {
         }
     })
 })
+
+//get the rating history of a card 
+
 
 app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
