@@ -1,4 +1,5 @@
 const connection = require("./db")
+const axios = require("axios");
 const express = require("express")
 const dotenv = require("dotenv")
 const cors = require("cors")
@@ -99,6 +100,22 @@ app.post("/addrating", async (req, res) => {
     })
 })
 
+const analyzeVocabulary = async (text) => {
+    try {
+        const response = await axios.post(
+            "http://127.0.0.1:5000/analyze",
+            {
+                text: text
+            }
+        );
+
+        return response.data.vocabulary;
+    } catch (error) {
+        console.error("Flask NLP error:", error.message);
+        throw error;
+    }
+};
+
 app.post("/translateinto", async (req, res) => {
     console.log(req.body);
     try {
@@ -187,27 +204,89 @@ app.post("/uploadImg", upload.single("flash_image"), async(req, res) => {
 })
 
 app.post("/translate", async (req, res) => {
-    const { input_text, input_language, output_language, output_text, user_id, picture_key} = req.body;
+    const {
+        input_text,
+        input_language,
+        output_language,
+        output_text,
+        user_id,
+        picture_key
+    } = req.body;
 
-    connection.query(
-        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id, picture_key) VALUES (?, ?, ?, ?, ?, ?)",
-        [input_text, input_language, output_language, output_text, user_id, picture_key],
-        (err, result) => {
-            if (err) {
-                console.error(err);
-                return res.status(500).json({ error: err.message });
-            }
+    try {
+        // 1. Save the translation
+        const result = await new Promise((resolve, reject) => {
+            connection.query(
+                `INSERT INTO translator 
+                (input_text, input_language, output_language, output_text, user_id, picture_key)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    input_text,
+                    input_language,
+                    output_language,
+                    output_text,
+                    user_id,
+                    picture_key
+                ],
+                (err, result) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+        });
 
-            console.log(result);
+        // This is the ID of the translation we just created
+        const translatorId = result.insertId;
 
-            res.json({
-                message: "Translation saved",
-                id: result.insertId
+        console.log("Translation saved with ID:", translatorId);
+
+        // 2. Send the translated text to Flask
+        const vocabulary = await analyzeVocabulary(output_text);
+
+        console.log("Extracted vocabulary:", vocabulary);
+
+        // 3. Save each vocabulary word to MySQL
+        for (const item of vocabulary) {
+            await new Promise((resolve, reject) => {
+                connection.query(
+                    `INSERT INTO vocabulary
+                    (translator_id, word, part_of_speech, confidence)
+                    VALUES (?, ?, ?, ?)`,
+                    [
+                        translatorId,
+                        item.word,
+                        item.part_of_speech,
+                        item.confidence
+                    ],
+                    (err, result) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(result);
+                        }
+                    }
+                );
             });
         }
-    );
-});
 
+        // 4. Send response back to frontend
+        res.json({
+            message: "Translation and vocabulary saved",
+            id: translatorId,
+            vocabulary: vocabulary
+        });
+
+    } catch (err) {
+        console.error("Error:", err);
+
+        res.status(500).json({
+            error: "Failed to save translation or vocabulary"
+        });
+    }
+});
 //register a new user by adding them to db 
 app.post("/register", async (req, res) => {
     const {username, password, email} = req.body
