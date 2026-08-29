@@ -1,5 +1,4 @@
 const connection = require("./db")
-const axios = require("axios");
 const express = require("express")
 const dotenv = require("dotenv")
 const cors = require("cors")
@@ -17,9 +16,22 @@ dotenv.config()
 
 const s3 = new S3Client({region:process.env.AWS_REGION})
 
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://10.48.159.161:5173",
+    "http://18.117.115.172:5173",
+]
+
 const corsOptions = {
-    origin: "http://localhost:5173",
-    methods : ["GET", "PUT", "POST", "DELETE"],
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true)
+        } else {
+            callback(new Error(`CORS blocked for origin: ${origin}`))
+        }
+    },
+    methods : ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
     credentials: true //allow sending cookies 
 }
 
@@ -100,22 +112,30 @@ app.post("/addrating", async (req, res) => {
     })
 })
 
-const analyzeVocabulary = async (text) => {
-    try {
-        const response = await axios.post(
-            "http://127.0.0.1:5000/analyze",
-            {
-                text: text
-            }
-        );
+app.get("/getratings", (req, res) => {
+    const { translator_id } = req.query;
 
-        return response.data.vocabulary;
-    } catch (error) {
-        console.error("Flask NLP error:", error.message);
-        throw error;
-    }
-};
+    const sqlquery = `
+        SELECT *
+        FROM ratings
+        WHERE translator_id = ?
+        ORDER BY ratingId ASC
+    `;
 
+    connection.query(sqlquery, [translator_id], (err, response) => {
+        if (err) {
+            console.error("Error getting ratings:", err);
+            res.status(500).json({
+                error: "Failed to get rating"
+            });
+        } else {
+            res.json({
+                ratings: response,
+                number_of_ratings: response.length
+            });
+        }
+    });
+});
 app.post("/translateinto", async (req, res) => {
     console.log(req.body);
     try {
@@ -204,89 +224,27 @@ app.post("/uploadImg", upload.single("flash_image"), async(req, res) => {
 })
 
 app.post("/translate", async (req, res) => {
-    const {
-        input_text,
-        input_language,
-        output_language,
-        output_text,
-        user_id,
-        picture_key
-    } = req.body;
+    const { input_text, input_language, output_language, output_text, user_id, picture_key} = req.body;
 
-    try {
-        // 1. Save the translation
-        const result = await new Promise((resolve, reject) => {
-            connection.query(
-                `INSERT INTO translator 
-                (input_text, input_language, output_language, output_text, user_id, picture_key)
-                VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    input_text,
-                    input_language,
-                    output_language,
-                    output_text,
-                    user_id,
-                    picture_key
-                ],
-                (err, result) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        resolve(result);
-                    }
-                }
-            );
-        });
+    connection.query(
+        "INSERT INTO translator (input_text, input_language, output_language, output_text, user_id, picture_key) VALUES (?, ?, ?, ?, ?, ?)",
+        [input_text, input_language, output_language, output_text, user_id, picture_key],
+        (err, result) => {
+            if (err) {
+                console.error(err);
+                return res.status(500).json({ error: err.message });
+            }
 
-        // This is the ID of the translation we just created
-        const translatorId = result.insertId;
+            console.log(result);
 
-        console.log("Translation saved with ID:", translatorId);
-
-        // 2. Send the translated text to Flask
-        const vocabulary = await analyzeVocabulary(output_text);
-
-        console.log("Extracted vocabulary:", vocabulary);
-
-        // 3. Save each vocabulary word to MySQL
-        for (const item of vocabulary) {
-            await new Promise((resolve, reject) => {
-                connection.query(
-                    `INSERT INTO vocabulary
-                    (translator_id, word, part_of_speech, confidence)
-                    VALUES (?, ?, ?, ?)`,
-                    [
-                        translatorId,
-                        item.word,
-                        item.part_of_speech,
-                        item.confidence
-                    ],
-                    (err, result) => {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            resolve(result);
-                        }
-                    }
-                );
+            res.json({
+                message: "Translation saved",
+                id: result.insertId
             });
         }
-
-        // 4. Send response back to frontend
-        res.json({
-            message: "Translation and vocabulary saved",
-            id: translatorId,
-            vocabulary: vocabulary
-        });
-
-    } catch (err) {
-        console.error("Error:", err);
-
-        res.status(500).json({
-            error: "Failed to save translation or vocabulary"
-        });
-    }
+    );
 });
+
 //register a new user by adding them to db 
 app.post("/register", async (req, res) => {
     const {username, password, email} = req.body
@@ -398,9 +356,37 @@ app.get("/verifyUser", midAuth, (req, res) => {
     })
 });
 
+// based on the user id, fetch all their flashcards 
+app.post("/fetchCards", async(req, res) => {
+    const {id_val} = req.body
+    const sqlQuery = "SELECT * FROM translator WHERE user_id = ?"
+    connection.query(sqlQuery, [id_val], (err, result) => {
+        if(err){
+            console.log(err)
+        }
+        else{
+            res.send(result)
+        }
+    })
+})
+
+//edit the flashcard values 
+app.put("/updateFlashcard", (req, res) => {
+    const {translator_id, input_text, output_text, pic_key} = req.body
+    const sqlquery = "UPDATE translator SET input_text = ?, output_text = ?, picture_key = ? WHERE translator_id = ?"
+    connection.query(sqlquery, [input_text, output_text, pic_key, translator_id], (err, response) => {
+        if (err){
+            console.log(err)
+        }
+        else{
+            res.send(response)
+        }
+    })
+})
+
+//get the rating history of a card 
 
 
-
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server started at Port ${PORT}`)
 })
