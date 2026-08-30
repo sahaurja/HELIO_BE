@@ -9,16 +9,10 @@ const credentials = {
     database: process.env.DATABASE
 }
 
-const connection = mysql.createConnection(credentials)
-
-connection.connect( (err) => {
-    if(err){
-        console.log("Error connecting")
-    }
-    else{
-        console.log("Successfully connected to db")
-    }
+const pool = mysql.createPool({
+    ...credentials,
+    connectionLimit: 5,
+    waitForConnections: true
 })
 
-
-module.exports = connection
+module.exports = pool
