@@ -16,25 +16,26 @@ dotenv.config()
 
 const s3 = new S3Client({region:process.env.AWS_REGION})
 
-const allowedOrigins = [
+const allowedOrigins = [ 
   "http://localhost:5173", 
-  "https://helio-fe-seven.vercel.app" 
+    "https://helio-fe-seven.vercel.app" 
 ];
 
-
-const corsOptions = { 
+const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps or curl requests)
+    // Safely allow requests with no origin (like mobile apps, postman, or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      // Pass false instead of an Error object to reject CORS safely without crashing Express
+      return callback(null, false); 
     }
-    return callback(null, true);
   },
-  methods: ["GET", "PUT", "POST", "DELETE"], 
-  credentials: true 
-}
+  methods: ["GET", "PUT", "POST", "DELETE", "OPTIONS", "PATCH"], // Ensured OPTIONS is present
+  credentials: true
+};
 
 
 //set up multer for storage
