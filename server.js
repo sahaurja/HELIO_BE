@@ -170,9 +170,17 @@ const getImageUrl = async(picture_key) => {
 //called each time specific flashcard is flipped
 app.post("/getCardImage", async (req, res) => {
     const {key} = req.body
-    const url_result = await getImageUrl(key)
-    // console.log(url_result)
-    res.send(url_result)
+    if(!key){
+        return res.send("")
+    }
+    try{
+        const url_result = await getImageUrl(key)
+        res.send(url_result)
+    }
+    catch(err){
+        console.log(err)
+        res.status(500).json({ error: "Failed to get image url" })
+    }
 })
 
 //upload image to bucket
