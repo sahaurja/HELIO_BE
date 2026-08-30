@@ -17,22 +17,23 @@ dotenv.config()
 const s3 = new S3Client({region:process.env.AWS_REGION})
 
 const allowedOrigins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://10.48.159.161:5173",
-    "http://18.117.115.172:5173",
-]
+  "http://localhost:5173", 
+  "https://helio-fe-seven.vercel.app" 
+];
 
-const corsOptions = {
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true)
-        } else {
-            callback(new Error(`CORS blocked for origin: ${origin}`))
-        }
-    },
-    methods : ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
-    credentials: true //allow sending cookies 
+
+const corsOptions = { 
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ["GET", "PUT", "POST", "DELETE"], 
+  credentials: true 
 }
 
 
@@ -112,30 +113,6 @@ app.post("/addrating", async (req, res) => {
     })
 })
 
-app.get("/getratings", (req, res) => {
-    const { translator_id } = req.query;
-
-    const sqlquery = `
-        SELECT *
-        FROM ratings
-        WHERE translator_id = ?
-        ORDER BY ratingId ASC
-    `;
-
-    connection.query(sqlquery, [translator_id], (err, response) => {
-        if (err) {
-            console.error("Error getting ratings:", err);
-            res.status(500).json({
-                error: "Failed to get rating"
-            });
-        } else {
-            res.json({
-                ratings: response,
-                number_of_ratings: response.length
-            });
-        }
-    });
-});
 app.post("/translateinto", async (req, res) => {
     console.log(req.body);
     try {
@@ -264,7 +241,7 @@ app.post("/register", async (req, res) => {
                 }
                 else{
                     return res.send("Internal login error")
-                }
+                } 
             }
             //different error
             else{
@@ -315,7 +292,8 @@ app.post("/dologin", async(req,res) => {
                     //set a cookie with name of token and the value as the JWT
                     res.cookie("token",token, {
                         httpOnly:true, //no JS access
-                        secure:false
+                        secure: true,
+                        sameSite: "none"
                     }).send({success:true})
                     }
                     else{
@@ -334,7 +312,8 @@ app.post("/dologout", (req, res) => {
     //clear the cookie
     res.clearCookie("token", {
         httpOnly:true,
-        secure:false
+        secure:true,
+        sameSite:"none"
     }).send({success:true})
 })
 
@@ -384,9 +363,8 @@ app.put("/updateFlashcard", (req, res) => {
     })
 })
 
-//get the rating history of a card 
+module.exports = app
 
-
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
     console.log(`Server started at Port ${PORT}`)
 })
