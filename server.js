@@ -231,10 +231,10 @@ app.post("/translate", async (req, res) => {
     );
 });
 
-//register a new user by adding them to db 
+//register a new user by adding them to db
 app.post("/register", async (req, res) => {
     const {username, password, email} = req.body
-    //align with the UNIQUE attribute in tables for email and username 
+    //align with the UNIQUE attribute in tables for email and username
     const sqlquery1 = "INSERT INTO all_logins (username, password, email) VALUES (?, ?, ?)"
     const hashed_password = await bcrypt.hash(password, 10)
     connection.query(sqlquery1, [username, hashed_password, email], (err, result) => {
@@ -250,11 +250,11 @@ app.post("/register", async (req, res) => {
                 }
                 else{
                     return res.send("Internal login error")
-                } 
+                }
             }
             //different error
             else{
-                console.log(err)
+                return res.status(500).send("Internal login error")
             }
         }
         //no error
